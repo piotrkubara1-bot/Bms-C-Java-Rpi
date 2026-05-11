@@ -87,7 +87,7 @@ public class BmsApiServer {
 		loadSettingsFromDb();
 		persistAllSettingsIfMissing();
 
-		HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
+		HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
 		server.createContext("/api/health", new HealthHandler());
 		server.createContext("/api/ingest", new IngestHandler());
 		server.createContext("/api/latest", new LatestHandler());
@@ -103,7 +103,7 @@ public class BmsApiServer {
 		server.createContext("/api/bms-events", new BmsEventsReadHandler());
 		server.setExecutor(null);
 
-		System.out.println("[BmsApiServer] Listening on port " + port);
+		System.out.println("[BmsApiServer] Listening on 0.0.0.0:" + port);
 		if (dbConnection == null) {
 			System.out.println("[BmsApiServer] Database disabled or unavailable. Running in memory-only mode.");
 		}
