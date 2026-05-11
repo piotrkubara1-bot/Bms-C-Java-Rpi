@@ -15,6 +15,7 @@ public class DataManager {
 	public static void main(String[] args) {
 		Scanner scanner = new Scanner(System.in);
 		System.out.println("[DataManager] stdin forwarder started...");
+		System.out.println("[DataManager] ingest url: " + INGEST_URL);
 
 		while (scanner.hasNextLine()) {
 			String line = scanner.nextLine().trim();
@@ -56,9 +57,12 @@ public class DataManager {
 				os.write(data.getBytes(StandardCharsets.UTF_8));
 			}
 
-			conn.getResponseCode();
+			int responseCode = conn.getResponseCode();
+			if (responseCode < 200 || responseCode >= 300) {
+				System.err.println("[DataManager] server returned HTTP " + responseCode + " for: " + data);
+			}
 		} catch (Exception ex) {
-			System.err.println("[DataManager] HTTP error: " + ex.getMessage());
+			System.err.println("[DataManager] HTTP error for " + INGEST_URL + ": " + ex.getMessage());
 		} finally {
 			if (conn != null) {
 				conn.disconnect();
