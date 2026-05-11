@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>BMS Dashboard</title>
+	<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+<div class="app-shell">
+	<header class="topbar">
+		<h1>BMS Operations Console</h1>
+		<div class="connection" id="healthStatus">Connecting...</div>
+	</header>
+
+	<nav class="tabbar">
+		<button class="tab active" data-tab="live">Live Data</button>
+		<button class="tab" data-tab="events">Events</button>
+		<button class="tab" data-tab="statistics">Statistics</button>
+		<button class="tab" data-tab="bms-connection">BMS Connection</button>
+		<button class="tab" data-tab="cell-settings">Cell Settings</button>
+	</nav>
+
+	<main class="content">
+		<section id="tab-live" class="tab-content active">
+			<div class="module-grid" id="moduleGrid"></div>
+		</section>
+
+		<section id="tab-events" class="tab-content">
+			<div class="stats-toolbar">
+				<button id="readNewestBmsEventsBtn" type="button">Read Newest BMS Events</button>
+				<button id="readAllBmsEventsBtn" type="button">Read All BMS Events</button>
+				<span id="bmsEventsReadStatus"></span>
+			</div>
+			<table>
+				<thead>
+				<tr>
+					<th>Timestamp</th>
+					<th>Module</th>
+					<th>Severity</th>
+					<th>Code</th>
+					<th>Message</th>
+				</tr>
+				</thead>
+				<tbody id="eventsTableBody"></tbody>
+			</table>
+		</section>
+
+		<section id="tab-statistics" class="tab-content">
+			<div class="stats-toolbar">
+				<label>
+					BMS
+					<select id="statsModuleFilter">
+						<option value="1">1</option>
+					</select>
+				</label>
+				<label>
+					Saved Samples
+					<select id="statsSampleLimit">
+						<option value="50">Latest 50</option>
+						<option value="100" selected>Latest 100</option>
+						<option value="200">Latest 200</option>
+						<option value="500">Latest 500</option>
+						<option value="1000">Latest 1000</option>
+						<option value="2000">Latest 2000</option>
+					</select>
+				</label>
+				<button id="statsReloadBtn" type="button">Reload</button>
+			</div>
+			<div class="stats-cards" id="statsCards"></div>
+			<div class="stats-charts" id="statsCharts"></div>
+		</section>
+
+		<section id="tab-bms-connection" class="tab-content">
+			<div class="status-summary" id="bmsConnectionSummary">Loading BMS connection status...</div>
+			<h3>Computer to Backend</h3>
+			<table>
+				<thead>
+				<tr>
+					<th>Source</th>
+					<th>Last Seen</th>
+					<th>Seconds Ago</th>
+					<th>Status</th>
+					<th>Accepted Packets</th>
+				</tr>
+				</thead>
+				<tbody id="bmsConnectionSourcesTableBody"></tbody>
+			</table>
+
+			<h3>Single BMS Telemetry</h3>
+			<table>
+				<thead>
+				<tr>
+					<th>BMS</th>
+					<th>Last Telemetry</th>
+					<th>Seconds Ago</th>
+					<th>Status</th>
+				</tr>
+				</thead>
+				<tbody id="bmsConnectionDeviceTableBody"></tbody>
+			</table>
+		</section>
+
+		<section id="tab-cell-settings" class="tab-content">
+			<div class="settings-note">
+				Backend, Web UI i baza danych mogą działać bez podłączonego BMS. Brak telemetry oznacza tylko brak danych z UART.
+			</div>
+			<form id="serialConfigForm" class="settings-form">
+				<label>
+					Saved COM Port
+					<select id="serialPortValue" required></select>
+				</label>
+				<button type="submit">Save COM Port</button>
+				<span id="serialConfigStatus"></span>
+			</form>
+			<div class="settings-form">
+				<button id="uartStartBtn" type="button">Start UART</button>
+				<button id="uartStopBtn" type="button">Stop UART</button>
+				<span id="uartControlStatus"></span>
+			</div>
+			<div class="settings-form">
+				<button id="bmsResetBtn" type="button">Reset BMS</button>
+				<button id="bmsClearEventsBtn" type="button">Clear Events</button>
+				<button id="bmsClearStatisticsBtn" type="button">Clear Statistics</button>
+				<span id="bmsControlStatus"></span>
+			</div>
+			<div class="settings-note" id="serialConfigMeta">
+				Loading serial configuration...
+			</div>
+			<div class="settings-note" id="uartRuntimeMeta">
+				Loading UART status...
+			</div>
+			<pre id="uartLogs" class="uart-logs">No UART logs yet.</pre>
+			<div class="settings-note">
+				These are basic host-side settings values used by the control app.
+			</div>
+			<form id="settingsForm" class="settings-form">
+				<label>
+					BMS
+					<select id="settingsModule">
+						<option value="1">1</option>
+					</select>
+				</label>
+				<label>
+					Parameter
+					<select id="settingsKey"></select>
+				</label>
+				<label>
+					Value
+					<input id="settingsValue" type="number" step="0.001" required>
+				</label>
+				<button type="submit">Apply</button>
+				<span id="settingsStatus"></span>
+			</form>
+			<table>
+				<thead>
+				<tr>
+					<th>Parameter</th>
+					<th>Unit</th>
+					<th>BMS 1</th>
+				</tr>
+				</thead>
+				<tbody id="settingsTableBody"></tbody>
+			</table>
+		</section>
+	</main>
+</div>
+
+<script src="dashboard.js"></script>
+</body>
+</html>

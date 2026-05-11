@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pl">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>BMS Host - dokumentacja developerska</title>
+	<style>
+		body { font-family: Arial, sans-serif; margin: 32px; line-height: 1.55; color: #202124; }
+		code, pre { background: #f4f6f8; border-radius: 4px; }
+		code { padding: 2px 4px; }
+		pre { padding: 12px; overflow: auto; }
+		section { max-width: 980px; margin-bottom: 28px; }
+		h1, h2 { line-height: 1.2; }
+	</style>
+</head>
+<body>
+	<section>
+		<h1>BMS Host</h1>
+		<p>
+			Projekt sklada sie z backendu Java, Web GUI, desktop viewera JavaFX oraz programu C na Raspberry Pi.
+		</p>
+	</section>
+
+	<section>
+		<h2>Przeplyw danych</h2>
+		<pre>bateria -> BMS -> Raspberry Pi -> tinybms_rpi -> SSH -> Windows Bash -> DataManager.java -> BmsApiServer -> GUI</pre>
+		<p>
+			Program <code>rpi/tinybms_rpi.c</code> czyta TinyBMS przez <code>/dev/ttyUSB0</code>, buduje ramki z CRC MODBUS
+			i moze wypisac dane w formacie akceptowanym przez <code>BmsApiServer</code>.
+		</p>
+	</section>
+
+	<section>
+		<h2>Najwazniejsze pliki</h2>
+		<ul>
+			<li><code>src/main/java/BmsApiServer.java</code> - backend HTTP i parser danych BMS.</li>
+			<li><code>src/main/java/DataManager.java</code> - odbiera linie ze standardowego wejscia i wysyla je do API.</li>
+			<li><code>src/main/java/BmsUartSender.java</code> - wariant Java czytajacy UART lokalnie na PC.</li>
+			<li><code>src/main/resources/dashboard.html</code> - Web GUI.</li>
+			<li><code>rpi/tinybms_rpi.c</code> - program C dla Raspberry Pi.</li>
+			<li><code>rpi/stream_to_windows_java.sh</code> - potok RPi do Windows przez SSH.</li>
+			<li><code>scripts/windows_receive_from_ssh.sh</code> - odbior danych po SSH i start <code>DataManager</code>.</li>
+			<li><code>docs/RPI_SSH_PIPELINE.md</code> - instrukcja konfiguracji RPi/SSH.</li>
+		</ul>
+	</section>
+
+	<section>
+		<h2>Format danych</h2>
+		<pre>BMS,module_id,pack_voltage_v,current_a,soc_raw,status_decimal,cell_1_mv,cell_2_mv,...</pre>
+		<p>
+			Taki wiersz mozna wyslac bezposrednio do endpointu <code>/api/ingest</code> albo do <code>DataManager.java</code>
+			przez standardowe wejscie.
+		</p>
+	</section>
+</body>
+</html>
