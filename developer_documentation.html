@@ -52,5 +52,54 @@
 			przez standardowe wejscie.
 		</p>
 	</section>
+
+	<section>
+		<h2>Sprawdzony wariant: laptop jako hotspot</h2>
+		<p>
+			Gdy laptop udostepnia hotspot Windows, laptop zwykle ma adres <code>192.168.137.1</code>,
+			a Raspberry Pi dostaje adres <code>192.168.137.x</code>. Na RPi sprawdz to komenda:
+		</p>
+		<pre>ip route</pre>
+		<p>
+			Adres po <code>default via</code> to adres laptopa. Pelny start potoku z RPi:
+		</p>
+		<pre>PC_USER=piotrek \
+PC_HOST=192.168.137.1 \
+REMOTE_COMMAND='cd /d "C:\Users\Piotrek\Desktop\Bms-C-Java-Rpi-main" &amp;&amp; bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
+./rpi/stream_to_windows_java.sh</pre>
+	</section>
+
+	<section>
+		<h2>Endpointy testowe</h2>
+		<p>
+			<code>/api/ingest</code> przyjmuje dane metoda <code>POST</code>.
+			<code>/api/latest</code> zwraca ostatnie dane metoda <code>GET</code>.
+			Nie wysylaj <code>POST</code> na <code>/api/latest</code>, bo dostaniesz <code>Method not allowed</code>.
+		</p>
+		<pre>printf "BMS,1,52.100,0.000,75000000,151,3260,3261,3262,3264\n" | ssh piotrek@192.168.137.1 'curl.exe -X POST http://127.0.0.1:8090/api/ingest --data-binary @-'
+ssh piotrek@192.168.137.1 'curl.exe http://127.0.0.1:8090/api/latest'</pre>
+		<p>
+			Poprawny ingest zwraca <code>{"accepted":1,"heartbeat":0,"rejected":0}</code>.
+		</p>
+	</section>
+
+	<section>
+		<h2>Typowe problemy</h2>
+		<ul>
+			<li><code>Connection refused</code> - backend API nie dziala albo <code>DataManager</code> trafia w zly adres.</li>
+			<li><code>Connect timed out</code> - firewall Windows blokuje port albo backend nie nasluchuje na interfejsie sieciowym.</li>
+			<li><code>Listening on 0.0.0.0:8090</code> - poprawny log backendu dla pracy przez hotspot/WSL.</li>
+			<li><code>java command: java.exe</code> - poprawny log odbiornika, gdy SSH uruchamia bash w WSL.</li>
+			<li><code>UnsupportedClassVersionError</code> - <code>javac</code> i <code>java</code> sa z roznych wersji JDK.</li>
+		</ul>
+		<pre>where java
+where javac
+java -version
+javac -version</pre>
+		<p>
+			Pierwsze <code>where java</code> powinno wskazywac aktualny JDK, np.
+			<code>C:\Program Files\Java\jdk-25\bin\java.exe</code>.
+		</p>
+	</section>
 </body>
 </html>

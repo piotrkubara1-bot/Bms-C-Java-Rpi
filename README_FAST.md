@@ -93,6 +93,12 @@ Na Windows uruchom serwer:
 .\run_server_stack.bat
 ```
 
+Backend powinien pokazać:
+
+```text
+[BmsApiServer] Listening on 0.0.0.0:8090
+```
+
 Na Raspberry Pi zbuduj program C:
 
 ```bash
@@ -100,17 +106,41 @@ cd rpi
 make
 ```
 
-Wyślij dane do programu Java na Windows:
+Jeśli laptop udostępnia hotspot, jego IP zwykle jest:
+
+```text
+192.168.137.1
+```
+
+Sprawdź z RPi:
+
+```bash
+ip route
+```
+
+Uruchom pełny program:
 
 ```bash
 cd ..
-PC_USER=twoj_user \
-PC_HOST=192.168.1.50 \
-PC_PROJECT_DIR=/c/Users/Piotrek/Desktop/Bms-C-Java-Rpi \
+PC_USER=piotrek \
+PC_HOST=192.168.137.1 \
+REMOTE_COMMAND='cd /d "C:\Users\Piotrek\Desktop\Bms-C-Java-Rpi-main" && bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
 ./rpi/stream_to_windows_java.sh
 ```
 
-Więcej:
+Test ręczny bez BMS:
+
+```bash
+printf "BMS,1,52.100,0.000,75000000,151,3260,3261,3262,3264\n" | ssh piotrek@192.168.137.1 'curl.exe -X POST http://127.0.0.1:8090/api/ingest --data-binary @-'
+ssh piotrek@192.168.137.1 'curl.exe http://127.0.0.1:8090/api/latest'
+```
+
+Pamiętaj:
+
+- `/api/ingest` = wysyłanie danych przez `POST`
+- `/api/latest` = sprawdzanie danych przez `GET`
+- w trybie RPi nie wybierasz portu COM w Web GUI
+- jeśli jest `UnsupportedClassVersionError`, ustaw `java` i `javac` na tę samą wersję JDK
 
 ```text
 docs/RPI_SSH_PIPELINE.md

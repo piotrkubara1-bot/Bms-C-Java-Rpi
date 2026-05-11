@@ -294,6 +294,8 @@ bateria -> BMS -> RPi -> program C -> SSH -> Windows Bash -> Java
 
 Program C znajduje się w folderze `rpi`.
 
+W tym trybie Web GUI tylko pokazuje dane. Nie wybierasz w przeglądarce portu COM i nie klikasz `Start UART`, bo BMS czyta Raspberry Pi przez `/dev/ttyUSB0`.
+
 Na Raspberry Pi:
 
 ```bash
@@ -302,17 +304,66 @@ make
 ./tinybms_rpi --device /dev/ttyUSB0 --module 1 --no-print --bms-line read
 ```
 
-Jeśli jednorazowy odczyt działa, wróć do katalogu głównego projektu i uruchom ciągłe wysyłanie do PC:
+Jeśli jednorazowy odczyt działa, wróć do katalogu głównego projektu i uruchom ciągłe wysyłanie do PC.
+
+Jeśli laptop udostępnia hotspot Windows, IP laptopa zwykle jest `192.168.137.1`, a Raspberry Pi ma adres typu `192.168.137.xxx`. Na RPi możesz to sprawdzić:
 
 ```bash
-cd ..
-PC_USER=twoj_user \
-PC_HOST=192.168.1.50 \
-PC_PROJECT_DIR=/c/Users/Piotrek/Desktop/Bms-C-Java-Rpi \
+ip route
+```
+
+Adres po `default via` to zwykle adres laptopa.
+
+Przykład dla laptopa/hotspotu `192.168.137.1` i projektu sklonowanego jako `Bms-C-Java-Rpi-main`:
+
+```bash
+PC_USER=piotrek \
+PC_HOST=192.168.137.1 \
+REMOTE_COMMAND='cd /d "C:\Users\Piotrek\Desktop\Bms-C-Java-Rpi-main" && bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
 ./rpi/stream_to_windows_java.sh
 ```
 
 Na Windows skrypt `scripts/windows_receive_from_ssh.sh` czyta dane ze standardowego wejścia i uruchamia `DataManager.java`, który wysyła dane do backendu API.
+
+### Testy RPi -> laptop
+
+Najpierw uruchom na laptopie:
+
+```powershell
+.\run_server_stack.bat
+```
+
+Backend powinien wypisać:
+
+```text
+[BmsApiServer] Listening on 0.0.0.0:8090
+```
+
+Sprawdź z RPi, czy laptop odpowiada:
+
+```bash
+ssh piotrek@192.168.137.1 'curl.exe http://127.0.0.1:8090/api/health'
+```
+
+Wyślij ręcznie jedną linię testową:
+
+```bash
+printf "BMS,1,52.100,0.000,75000000,151,3260,3261,3262,3264\n" | ssh piotrek@192.168.137.1 'curl.exe -X POST http://127.0.0.1:8090/api/ingest --data-binary @-'
+```
+
+Poprawna odpowiedź:
+
+```json
+{"accepted":1,"heartbeat":0,"rejected":0}
+```
+
+Potem sprawdź ostatnie dane:
+
+```bash
+ssh piotrek@192.168.137.1 'curl.exe http://127.0.0.1:8090/api/latest'
+```
+
+`/api/ingest` służy do wysyłania danych przez `POST`. `/api/latest` służy do oglądania danych przez zwykły `GET`, bez `-X POST`.
 
 Pełna instrukcja jest tutaj:
 
@@ -360,6 +411,14 @@ To zwykle znaczy:
 - wybrany port COM jest zły,
 - nie uruchomiłeś trybu `SIMULATED`
 
+W trybie Raspberry Pi przez SSH nie klikaj `Start UART` w GUI. Zamiast tego sprawdź:
+
+```powershell
+curl.exe http://127.0.0.1:8090/api/latest
+```
+
+Jeśli zwraca `[]`, backend nie dostał danych. Najpierw wyślij test przez `/api/ingest`.
+
 ### Problem 4. PowerShell nie uruchamia `.bat`
 
 Pisz tak:
@@ -373,6 +432,55 @@ Nie tak:
 ```powershell
 run_server_stack.bat
 ```
+
+### Problem 5. `Connection refused` w `DataManager`
+
+To znaczy, że `DataManager` nie może połączyć się z backendem API. Sprawdź na laptopie:
+
+```powershell
+curl.exe http://127.0.0.1:8090/api/health
+```
+
+Jeśli działa lokalnie, ale nie przez SSH, sprawdź czy skrypt pokazuje:
+
+```text
+[windows_receive_from_ssh] java command: java.exe
+```
+
+Jeśli pokazuje `java`, a nie `java.exe`, uruchomiła się linuxowa Java z WSL i może mieć inną sieć.
+
+### Problem 6. `Connect timed out`
+
+Najczęściej firewall Windows blokuje port `8090` albo backend nie nasłuchuje na zewnątrz. Backend powinien logować:
+
+```text
+[BmsApiServer] Listening on 0.0.0.0:8090
+```
+
+Jeśli trzeba, odblokuj port w PowerShell jako administrator:
+
+```powershell
+New-NetFirewallRule -Name BMSApi8090 -DisplayName "BMS API 8090" -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 8090
+```
+
+### Problem 7. `UnsupportedClassVersionError`
+
+To znaczy, że `javac` i `java` są z różnych wersji. Sprawdź na laptopie:
+
+```cmd
+where java
+where javac
+java -version
+javac -version
+```
+
+Pierwsza linia `where java` powinna wskazywać aktualny JDK, na przykład:
+
+```text
+C:\Program Files\Java\jdk-25\bin\java.exe
+```
+
+Jeśli pierwsza jest Java 8, przestaw `Path`, aby `C:\Program Files\Java\jdk-25\bin` było wyżej niż `C:\Program Files (x86)\Common Files\Oracle\Java\java8path`.
 
 ## 14. Najważniejsze pliki
 
