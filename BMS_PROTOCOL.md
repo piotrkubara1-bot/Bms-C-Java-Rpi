@@ -15,21 +15,22 @@ This document defines the line protocol accepted by the Java ingestion service.
 
 Preferred 4-module format:
 
-BMS,module_id,voltage_v,current_a,soc_raw,status_code,cell_1_mv,cell_2_mv,...
+BMS,module_id,voltage_v,current_a,soc_raw,status_code,cell_1_mv,cell_2_mv,...,TEMP_C,temperature_c
 
 Legacy single-module format:
 
-BMS,voltage_v,current_a,soc_raw,status_code,cell_1_mv,cell_2_mv,...
+BMS,voltage_v,current_a,soc_raw,status_code,cell_1_mv,cell_2_mv,...,TEMP_C,temperature_c
 
 Notes:
 
 - module_id range: 1..4
 - soc_raw conversion: if soc_raw > 1000 then soc_percent = soc_raw / 1000000
 - cell values are stored in millivolts
+- TEMP_C is optional; older lines without temperature are still accepted
 
 Example:
 
-BMS,2,15.500,0.000,85000000,155,4000,3200,3900,3700
+BMS,2,15.500,0.000,85000000,155,4000,3200,3900,3700,TEMP_C,24.5625
 
 ### 2.2 EVENT line
 

@@ -134,9 +134,15 @@ public class BmsApiServer {
 						"current_a DECIMAL(10,3) NOT NULL," +
 						"soc_percent DECIMAL(7,3) NOT NULL," +
 						"status_code INT NOT NULL," +
+						"temperature_c DECIMAL(7,3) NULL," +
 						"raw_line TEXT NOT NULL" +
 					")"
 				);
+				try {
+					statement.executeUpdate("ALTER TABLE bms_readings ADD COLUMN temperature_c DECIMAL(7,3) NULL AFTER status_code");
+				} catch (Exception ignored) {
+					// Column already exists on newer schemas.
+				}
 				statement.executeUpdate(
 					"CREATE TABLE IF NOT EXISTS bms_cell_readings (" +
 						"id BIGINT PRIMARY KEY AUTO_INCREMENT," +
@@ -458,7 +464,28 @@ public class BmsApiServer {
 			return null;
 		}
 
-		double voltage = normalizeVoltage(safeDouble(parts[index], 0.0), parts.length - (index + 4));
+		double temperatureC = Double.NaN;
+		int cellFieldCount = 0;
+		for (int i = index + 4; i < parts.length; i++) {
+			String part = parts[i].trim();
+			if ("TEMP_C".equalsIgnoreCase(part) || "TEMP".equalsIgnoreCase(part) || "TEMPERATURE_C".equalsIgnoreCase(part)) {
+				if (i + 1 < parts.length) {
+					temperatureC = safeDouble(parts[i + 1], Double.NaN);
+					i++;
+				}
+				continue;
+			}
+			if (part.toUpperCase(Locale.ROOT).startsWith("TEMP_C=") || part.toUpperCase(Locale.ROOT).startsWith("TEMP=")) {
+				int eq = part.indexOf('=');
+				temperatureC = safeDouble(part.substring(eq + 1), Double.NaN);
+				continue;
+			}
+			if (isInteger(part)) {
+				cellFieldCount++;
+			}
+		}
+
+		double voltage = normalizeVoltage(safeDouble(parts[index], 0.0), cellFieldCount);
 		double current = normalizeCurrent(safeDouble(parts[index + 1], 0.0));
 		double socRaw = safeDouble(parts[index + 2], 0.0);
 		int statusCode = safeInt(parts[index + 3], 0);
@@ -466,8 +493,16 @@ public class BmsApiServer {
 
 		List<Integer> cells = new ArrayList<>();
 		for (int i = index + 4; i < parts.length; i++) {
-			if (isInteger(parts[i])) {
-				int cellMv = normalizeCellMv(safeInt(parts[i], 0));
+			String part = parts[i].trim();
+			if ("TEMP_C".equalsIgnoreCase(part) || "TEMP".equalsIgnoreCase(part) || "TEMPERATURE_C".equalsIgnoreCase(part)) {
+				i++;
+				continue;
+			}
+			if (part.toUpperCase(Locale.ROOT).startsWith("TEMP_C=") || part.toUpperCase(Locale.ROOT).startsWith("TEMP=")) {
+				continue;
+			}
+			if (isInteger(part)) {
+				int cellMv = normalizeCellMv(safeInt(part, 0));
 				if (cellMv > 0) {
 					cells.add(cellMv);
 				}
@@ -482,6 +517,7 @@ public class BmsApiServer {
 		reading.currentA = current;
 		reading.socPercent = socPercent;
 		reading.statusCode = statusCode;
+		reading.temperatureC = temperatureC;
 		reading.cellMv = cells;
 		reading.rawLine = line;
 		return reading;
@@ -606,8 +642,8 @@ public class BmsApiServer {
 		}
 
 		String insertReading =
-			"INSERT INTO bms_readings (module_id, voltage_v, current_a, soc_percent, status_code, raw_line) " +
-			"VALUES (?, ?, ?, ?, ?, ?)";
+			"INSERT INTO bms_readings (module_id, voltage_v, current_a, soc_percent, status_code, temperature_c, raw_line) " +
+			"VALUES (?, ?, ?, ?, ?, ?, ?)";
 		String insertCell =
 			"INSERT INTO bms_cell_readings (reading_id, module_id, cell_index, cell_mv) VALUES (?, ?, ?, ?)";
 
@@ -617,7 +653,12 @@ public class BmsApiServer {
 			stmtReading.setDouble(3, reading.currentA);
 			stmtReading.setDouble(4, reading.socPercent);
 			stmtReading.setInt(5, reading.statusCode);
-			stmtReading.setString(6, reading.rawLine);
+			if (Double.isFinite(reading.temperatureC)) {
+				stmtReading.setDouble(6, reading.temperatureC);
+			} else {
+				stmtReading.setNull(6, java.sql.Types.DECIMAL);
+			}
+			stmtReading.setString(7, reading.rawLine);
 			stmtReading.executeUpdate();
 
 			long readingId = -1;
@@ -671,7 +712,7 @@ public class BmsApiServer {
 		}
 
 		StringBuilder sql = new StringBuilder();
-		sql.append("SELECT id, created_at, module_id, voltage_v, current_a, soc_percent, status_code, raw_line ");
+		sql.append("SELECT id, created_at, module_id, voltage_v, current_a, soc_percent, status_code, temperature_c, raw_line ");
 		sql.append("FROM bms_readings WHERE (? = 0 OR module_id = ?)");
 		if (since != null) {
 			sql.append(" AND created_at >= ?");
@@ -700,6 +741,8 @@ public class BmsApiServer {
 					reading.currentA = normalizeCurrent(rs.getDouble("current_a"));
 					reading.socPercent = rs.getDouble("soc_percent");
 					reading.statusCode = rs.getInt("status_code");
+					double temperature = rs.getDouble("temperature_c");
+					reading.temperatureC = rs.wasNull() ? Double.NaN : temperature;
 					reading.rawLine = rs.getString("raw_line");
 					reading.cellMv = new ArrayList<>();
 					byId.put(id, reading);
@@ -760,7 +803,9 @@ public class BmsApiServer {
 		StringBuilder aggregatesSql = new StringBuilder();
 		aggregatesSql.append(
 			"SELECT module_id, COUNT(*) AS sample_count, AVG(soc_percent) AS avg_soc, MIN(soc_percent) AS min_soc, MAX(soc_percent) AS max_soc, " +
-			"MIN(voltage_v) AS min_voltage, MAX(voltage_v) AS max_voltage, MIN(current_a) AS min_current, MAX(current_a) AS max_current " +
+			"MIN(voltage_v) AS min_voltage, MAX(voltage_v) AS max_voltage, MIN(current_a) AS min_current, MAX(current_a) AS max_current, " +
+			"MIN(temperature_c) AS min_temperature, MAX(temperature_c) AS max_temperature, AVG(temperature_c) AS avg_temperature, " +
+			"COUNT(temperature_c) AS temperature_count " +
 			"FROM bms_readings WHERE (? = 0 OR module_id = ?)"
 		);
 		if (since != null) {
@@ -786,6 +831,13 @@ public class BmsApiServer {
 					stats.maxVoltage = rs.getDouble("max_voltage");
 					stats.minCurrent = rs.getDouble("min_current");
 					stats.maxCurrent = rs.getDouble("max_current");
+					double avgTemperature = rs.getDouble("avg_temperature");
+					if (!rs.wasNull()) {
+						stats.temperatureCount = rs.getInt("temperature_count");
+						stats.temperatureSum = avgTemperature * Math.max(stats.temperatureCount, 1);
+						stats.minTemperature = rs.getDouble("min_temperature");
+						stats.maxTemperature = rs.getDouble("max_temperature");
+					}
 					statsByModule.put(module, stats);
 				}
 			}
@@ -2355,6 +2407,7 @@ public class BmsApiServer {
 		double currentA;
 		double socPercent;
 		int statusCode;
+		double temperatureC = Double.NaN;
 		List<Integer> cellMv;
 		String rawLine;
 
@@ -2366,6 +2419,11 @@ public class BmsApiServer {
 			sb.append(",\"currentA\":").append(String.format(Locale.US, "%.3f", currentA));
 			sb.append(",\"socPercent\":").append(String.format(Locale.US, "%.3f", socPercent));
 			sb.append(",\"statusCode\":").append(statusCode);
+			if (Double.isFinite(temperatureC)) {
+				sb.append(",\"temperatureC\":").append(String.format(Locale.US, "%.3f", temperatureC));
+			} else {
+				sb.append(",\"temperatureC\":null");
+			}
 			sb.append(",\"cellsMv\":[");
 			for (int i = 0; i < cellMv.size(); i++) {
 				if (i > 0) {
@@ -2438,6 +2496,10 @@ public class BmsApiServer {
 		double maxVoltage = -Double.MAX_VALUE;
 		double minCurrent = Double.MAX_VALUE;
 		double maxCurrent = -Double.MAX_VALUE;
+		int temperatureCount;
+		double temperatureSum;
+		double minTemperature = Double.MAX_VALUE;
+		double maxTemperature = -Double.MAX_VALUE;
 		int lastStatusCode;
 		String lastTimestamp = "";
 
@@ -2454,12 +2516,19 @@ public class BmsApiServer {
 			maxVoltage = Math.max(maxVoltage, reading.voltageV);
 			minCurrent = Math.min(minCurrent, reading.currentA);
 			maxCurrent = Math.max(maxCurrent, reading.currentA);
+			if (Double.isFinite(reading.temperatureC)) {
+				temperatureCount++;
+				temperatureSum += reading.temperatureC;
+				minTemperature = Math.min(minTemperature, reading.temperatureC);
+				maxTemperature = Math.max(maxTemperature, reading.temperatureC);
+			}
 			lastStatusCode = reading.statusCode;
 			lastTimestamp = reading.timestamp;
 		}
 
 		String toJson() {
 			double avgSoc = sampleCount == 0 ? 0.0 : socSum / sampleCount;
+			double avgTemperature = temperatureCount == 0 ? 0.0 : temperatureSum / temperatureCount;
 			return "{\"moduleId\":" + moduleId +
 				",\"sampleCount\":" + sampleCount +
 				",\"avgSoc\":" + String.format(Locale.US, "%.3f", avgSoc) +
@@ -2469,6 +2538,10 @@ public class BmsApiServer {
 				",\"maxVoltage\":" + String.format(Locale.US, "%.3f", sampleCount == 0 ? 0.0 : maxVoltage) +
 				",\"minCurrent\":" + String.format(Locale.US, "%.3f", sampleCount == 0 ? 0.0 : minCurrent) +
 				",\"maxCurrent\":" + String.format(Locale.US, "%.3f", sampleCount == 0 ? 0.0 : maxCurrent) +
+				",\"temperatureCount\":" + temperatureCount +
+				",\"avgTemperature\":" + String.format(Locale.US, "%.3f", avgTemperature) +
+				",\"minTemperature\":" + String.format(Locale.US, "%.3f", temperatureCount == 0 ? 0.0 : minTemperature) +
+				",\"maxTemperature\":" + String.format(Locale.US, "%.3f", temperatureCount == 0 ? 0.0 : maxTemperature) +
 				",\"lastStatusCode\":" + lastStatusCode +
 				",\"lastTimestamp\":\"" + escapeJson(lastTimestamp) + "\"}";
 		}

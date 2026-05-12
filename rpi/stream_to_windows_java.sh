@@ -9,6 +9,7 @@ PC_PROJECT_DIR="${PC_PROJECT_DIR:-}"
 DEVICE="${DEVICE:-/dev/ttyUSB0}"
 MODULE_ID="${MODULE_ID:-1}"
 PERIOD_MS="${PERIOD_MS:-1000}"
+TEMPERATURE_COMMAND="${TEMPERATURE_COMMAND:-python3 ${SCRIPT_DIR}/temperatureSensor.py}"
 REMOTE_COMMAND="${REMOTE_COMMAND:-}"
 
 if [[ -z "${PC_USER}" || -z "${PC_HOST}" ]]; then
@@ -33,6 +34,7 @@ fi
 	--device "${DEVICE}" \
 	--module "${MODULE_ID}" \
 	--period-ms "${PERIOD_MS}" \
+	--temperature-command "${TEMPERATURE_COMMAND}" \
 	--no-print \
 	--bms-line \
 	monitor | ssh "${PC_USER}@${PC_HOST}" "${REMOTE_COMMAND}"

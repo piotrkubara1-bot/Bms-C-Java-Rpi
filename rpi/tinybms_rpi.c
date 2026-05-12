@@ -3,6 +3,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -22,6 +23,7 @@ static int g_print_output = 1;
 static int g_bms_line_output = 0;
 static int g_module_id = 1;
 static long g_period_ms = 1000;
+static const char *g_temperature_command = NULL;
 static volatile sig_atomic_t g_stop = 0;
 
 typedef struct {
@@ -31,6 +33,8 @@ typedef struct {
 	uint16_t status;
 	uint16_t cells[MAX_CELLS];
 	int cell_count;
+	double temperature_c;
+	int has_temperature;
 } TinyBMSData;
 
 static void usage(const char *program_name)
@@ -45,6 +49,8 @@ static void usage(const char *program_name)
 	printf("      --bms-line        print one Java ingest line: BMS,module,V,A,SOC,status,cells\n");
 	printf("      --module ID       module id for --bms-line, default: 1\n");
 	printf("      --period-ms MS    monitor interval, default: 1000\n");
+	printf("      --temperature-command CMD\n");
+	printf("                          run CMD and append its numeric stdout as TEMP_C\n");
 	printf("\nCommands:\n");
 	printf("  read                  read one TinyBMS data packet\n");
 	printf("  monitor               read cyclically until Ctrl+C\n");
@@ -348,6 +354,9 @@ static void print_packet(const TinyBMSData *data)
 	printf("pack_current_a = %.3f\n", data->current);
 	printf("soc_percent = %.6f\n", (double)data->soc_raw / 1000000.0);
 	printf("status = 0x%04X %s\n", data->status, status_name(data->status));
+	if (data->has_temperature) {
+		printf("temperature_c = %.4f\n", data->temperature_c);
+	}
 	printf("cell_count = %d\n", data->cell_count);
 	for (int i = 0; i < data->cell_count; i++) {
 		printf("cell_%02d_v = %.4f\n", i + 1, (double)data->cells[i] / 10000.0);
@@ -367,8 +376,47 @@ static void print_bms_line(const TinyBMSData *data)
 		int cell_mv = (data->cells[i] + 5) / 10;
 		printf(",%d", cell_mv);
 	}
+	if (data->has_temperature) {
+		printf(",TEMP_C,%.4f", data->temperature_c);
+	}
 	printf("\n");
 	fflush(stdout);
+}
+
+static int read_temperature_command(double *temperature_c)
+{
+	if (g_temperature_command == NULL || g_temperature_command[0] == '\0') {
+		return 0;
+	}
+
+	FILE *pipe = popen(g_temperature_command, "r");
+	if (pipe == NULL) {
+		fprintf(stderr, "Cannot run temperature command: %s\n", strerror(errno));
+		return -1;
+	}
+
+	char buf[128];
+	if (fgets(buf, (int)sizeof(buf), pipe) == NULL) {
+		int close_status = pclose(pipe);
+		(void)close_status;
+		fprintf(stderr, "Temperature command produced no output\n");
+		return -1;
+	}
+	int close_status = pclose(pipe);
+	if (close_status != 0) {
+		fprintf(stderr, "Temperature command failed with status %d\n", close_status);
+		return -1;
+	}
+
+	char *end = NULL;
+	double value = strtod(buf, &end);
+	if (end == buf || !isfinite(value)) {
+		fprintf(stderr, "Temperature command output is not numeric: %s\n", buf);
+		return -1;
+	}
+
+	*temperature_c = value;
+	return 1;
 }
 
 static int csv_needs_header(const char *path)
@@ -395,7 +443,7 @@ static int write_packet_csv(const char *path, const TinyBMSData *data)
 	}
 
 	if (header) {
-		fprintf(f, "timestamp,pack_voltage_v,current_a,soc_percent,status_hex,status_name,cell_count");
+		fprintf(f, "timestamp,pack_voltage_v,current_a,soc_percent,status_hex,status_name,temperature_c,cell_count");
 		for (int i = 0; i < data->cell_count; i++) {
 			fprintf(f, ",cell_%02d_v", i + 1);
 		}
@@ -404,13 +452,17 @@ static int write_packet_csv(const char *path, const TinyBMSData *data)
 
 	char ts[32];
 	csv_timestamp(ts, (int)sizeof(ts));
-	fprintf(f, "%s,%.3f,%.3f,%.6f,0x%04X,%s,%d",
+	fprintf(f, "%s,%.3f,%.3f,%.6f,0x%04X,%s,",
 		ts,
 		data->voltage,
 		data->current,
 		(double)data->soc_raw / 1000000.0,
 		data->status,
-		status_name(data->status),
+		status_name(data->status));
+	if (data->has_temperature) {
+		fprintf(f, "%.4f", data->temperature_c);
+	}
+	fprintf(f, ",%d",
 		data->cell_count);
 	for (int i = 0; i < data->cell_count; i++) {
 		fprintf(f, ",%.4f", (double)data->cells[i] / 10000.0);
@@ -428,6 +480,10 @@ static int read_packet(int fd, TinyBMSData *data)
 	if (read_u32_cmd(fd, 0x1A, &data->soc_raw) != 0) return -1;
 	if (read_u16_cmd(fd, 0x18, &data->status) != 0) return -1;
 	if (read_cell_voltages(fd, data) != 0) return -1;
+	int temperature_status = read_temperature_command(&data->temperature_c);
+	if (temperature_status > 0) {
+		data->has_temperature = 1;
+	}
 	return 0;
 }
 
@@ -549,6 +605,14 @@ int main(int argc, char **argv)
 			if (g_period_ms < 100) {
 				g_period_ms = 100;
 			}
+			arg += 2;
+		} else if (strcmp(argv[arg], "--temperature-command") == 0) {
+			if (arg + 1 >= argc) {
+				fprintf(stderr, "Error: %s needs command\n\n", argv[arg]);
+				usage(argv[0]);
+				return 1;
+			}
+			g_temperature_command = argv[arg + 1];
 			arg += 2;
 		} else {
 			command = argv[arg];

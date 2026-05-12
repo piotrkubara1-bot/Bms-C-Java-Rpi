@@ -63,12 +63,15 @@ function renderLive(modules) {
 		const cellText = cells.length
 			? `${cells.length} cells: ${cells.map((mv) => `${Number(mv)} mV`).join(" / ")}`
 			: "-";
+		const temperature = Number(item.temperatureC);
+		const temperatureText = Number.isFinite(temperature) ? `${temperature.toFixed(2)} C` : "-";
 		return `
 			<div class="module-card">
 				<h3>BMS ${item.moduleId}</h3>
 				<div class="metric"><span>Voltage</span><strong>${Number(item.voltageV).toFixed(3)} V</strong></div>
 				<div class="metric"><span>Current</span><strong>${Number(item.currentA).toFixed(3)} A</strong></div>
 				<div class="metric"><span>SOC</span><strong>${Number(item.socPercent).toFixed(2)} %</strong></div>
+				<div class="metric"><span>Temperature</span><strong>${temperatureText}</strong></div>
 				<div class="metric"><span>Status</span><strong title="${escapeHtml(statusInfo.note)}">${item.statusCode} (${escapeHtml(statusInfo.label)})</strong></div>
 				<div class="metric"><span>Cells</span><strong>${escapeHtml(cellText)}</strong></div>
 			</div>
@@ -167,7 +170,9 @@ function renderStats(stats, moduleId) {
 			<div class="metric"><span>SOC Range</span><strong>${Number(item.minSoc).toFixed(2)} - ${Number(item.maxSoc).toFixed(2)} %</strong></div>
 			<div class="metric"><span>Voltage Range</span><strong>${Number(item.minVoltage).toFixed(3)} - ${Number(item.maxVoltage).toFixed(3)} V</strong></div>
 			<div class="metric"><span>Current Range</span><strong>${Number(item.minCurrent).toFixed(3)} - ${Number(item.maxCurrent).toFixed(3)} A</strong></div>
+			<div class="metric"><span>Temperature Range</span><strong>${Number(item.temperatureCount) > 0 ? `${Number(item.minTemperature).toFixed(2)} - ${Number(item.maxTemperature).toFixed(2)} C` : "-"}</strong></div>
 			<div class="metric"><span>Saved Samples</span><strong>${sampleLabel}</strong></div>
+			<div class="metric"><span>Temperature Samples</span><strong>${Number(item.temperatureCount) || 0}</strong></div>
 			<div class="metric"><span>Points</span><strong>${item.sampleCount}</strong></div>
 			<div class="metric"><span>Last Status</span><strong title="${escapeHtml(lastStatus.note)}">${item.lastStatusCode} (${escapeHtml(lastStatus.label)})</strong></div>
 			<div class="metric"><span>Last Timestamp</span><strong>${item.lastTimestamp || "-"}</strong></div>
@@ -234,15 +239,16 @@ function linePoints(values, minValue, maxValue, width, height, pad) {
 }
 
 function buildSingleLineChart(values, color) {
-	if (!Array.isArray(values) || values.length === 0) {
+	const finiteValues = Array.isArray(values) ? values.filter(Number.isFinite) : [];
+	if (!finiteValues.length) {
 		return "<div class='chart-empty'>No chart data.</div>";
 	}
 
 	const width = 420;
 	const height = 180;
 	const pad = 20;
-	const minValue = Math.min(...values);
-	const maxValue = Math.max(...values);
+	const minValue = Math.min(...finiteValues);
+	const maxValue = Math.max(...finiteValues);
 	const adjustedMin = minValue === maxValue ? minValue - 1 : minValue;
 	const adjustedMax = minValue === maxValue ? maxValue + 1 : maxValue;
 	const points = linePoints(values, adjustedMin, adjustedMax, width, height, pad);
@@ -310,6 +316,10 @@ function renderStatisticsCharts(history, moduleId) {
 	const voltage = ordered.map((item) => Number(item.voltageV));
 	const current = ordered.map((item) => Number(item.currentA));
 	const soc = ordered.map((item) => Number(item.socPercent));
+	const temperature = ordered.map((item) => {
+		const value = Number(item.temperatureC);
+		return Number.isFinite(value) ? value : NaN;
+	});
 	const status = ordered.map((item) => Number(item.statusCode));
 	const latestStatusInfo = describeStatus(status[status.length - 1]);
 
@@ -358,6 +368,20 @@ function renderStatisticsCharts(history, moduleId) {
 			<div class="chart-meta"><span>Min: ${formatChartNumber(Math.min(...soc), 2)}</span><span>Max: ${formatChartNumber(Math.max(...soc), 2)}</span><span>Latest: ${formatChartNumber(soc[soc.length - 1], 2)}</span></div>
 		</div>
 	`);
+
+	if (temperature.some((value) => Number.isFinite(value))) {
+		const temperatureValues = temperature.filter(Number.isFinite);
+		const latestTemperature = [...temperature].reverse().find((value) => Number.isFinite(value));
+		charts.push(`
+			<div class="chart-card ${zoomedKey === "temperature" ? "zoomed" : ""}" data-chart-key="temperature">
+				<div class="chart-card-head"><h3>Temperature (C)</h3><button class="chart-zoom-toggle" type="button">${zoomedKey === "temperature" ? "Shrink" : "Enlarge"}</button></div>
+				${buildSingleLineChart(temperature, "#f89b29")}
+				<div class="chart-meta"><span>Min: ${formatChartNumber(Math.min(...temperatureValues), 2)}</span><span>Max: ${formatChartNumber(Math.max(...temperatureValues), 2)}</span><span>Latest: ${formatChartNumber(latestTemperature, 2)}</span></div>
+			</div>
+		`);
+	} else if (statsState.zoomedChartKey === "temperature") {
+		statsState.zoomedChartKey = null;
+	}
 
 	charts.push(`
 		<div class="chart-card ${zoomedKey === "status" ? "zoomed" : ""}" data-chart-key="status">
@@ -742,6 +766,7 @@ function buildStatsFromHistory(history, moduleId) {
 	const soc = values.map((item) => Number(item.socPercent)).filter(Number.isFinite);
 	const voltage = values.map((item) => Number(item.voltageV)).filter(Number.isFinite);
 	const current = values.map((item) => Number(item.currentA)).filter(Number.isFinite);
+	const temperature = values.map((item) => Number(item.temperatureC)).filter(Number.isFinite);
 	const latest = values[0];
 	return [{
 		moduleId,
@@ -752,6 +777,10 @@ function buildStatsFromHistory(history, moduleId) {
 		maxVoltage: maxOrZero(voltage),
 		minCurrent: minOrZero(current),
 		maxCurrent: maxOrZero(current),
+		temperatureCount: temperature.length,
+		avgTemperature: average(temperature),
+		minTemperature: minOrZero(temperature),
+		maxTemperature: maxOrZero(temperature),
 		sampleCount: values.length,
 		lastStatusCode: Number(latest.statusCode) || 0,
 		lastTimestamp: latest.timestamp || ""

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS bms_readings (
 	current_a DECIMAL(10,3) NOT NULL,
 	soc_percent DECIMAL(7,3) NOT NULL,
 	status_code INT NOT NULL,
+	temperature_c DECIMAL(7,3) NULL,
 	raw_line TEXT NOT NULL,
 	INDEX idx_bms_readings_module_time (module_id, created_at)
 );

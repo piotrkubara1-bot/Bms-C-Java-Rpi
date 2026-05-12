@@ -50,10 +50,18 @@ cd rpi
 make
 ```
 
+Sensor DS18B20 jest czytany przez Python. W katalogu `rpi` jest gotowy plik:
+
+```bash
+python3 temperatureSensor.py
+```
+
+Powinien wypisac jedna liczbe, np. `24.5625`. Skrypt `stream_to_windows_java.sh` uruchamia go domyslnie i dopisuje wynik do linii BMS jako `TEMP_C`.
+
 Jednorazowy odczyt w formacie dla Javy:
 
 ```bash
-./tinybms_rpi --device /dev/ttyUSB0 --module 1 --no-print --bms-line read
+./tinybms_rpi --device /dev/ttyUSB0 --module 1 --temperature-command "python3 ./temperatureSensor.py" --no-print --bms-line read
 ```
 
 Ciagly odczyt i wysylka do PC:
@@ -184,7 +192,7 @@ Jesli zwraca `[]`, backend jeszcze nie dostal danych.
 `tinybms_rpi --bms-line` wypisuje:
 
 ```text
-BMS,module_id,pack_voltage_v,current_a,soc_raw,status_decimal,cell_1_mv,cell_2_mv,...
+BMS,module_id,pack_voltage_v,current_a,soc_raw,status_decimal,cell_1_mv,cell_2_mv,...,TEMP_C,temperature_c
 ```
 
-Ten format jest zgodny z parserem `BmsApiServer`.
+Pole `TEMP_C` jest opcjonalne. Stare linie bez temperatury nadal sa zgodne z parserem `BmsApiServer`.
