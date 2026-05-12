@@ -62,9 +62,9 @@ Jezeli nie chcesz uzywac temperatury albo czujnik nie jest jeszcze gotowy, wylac
 
 ```bash
 TEMPERATURE_COMMAND= \
-PC_USER=piotrek \
-PC_HOST=192.168.137.1 \
-REMOTE_COMMAND='cd /d "C:\Users\Piotrek\Desktop\Bms-C-Java-Rpi-main" && bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
+PC_USER=WINDOWS_USER \
+PC_HOST=LAPTOP_IP \
+REMOTE_COMMAND='cd /d "C:\path\to\Bms-C-Java-Rpi" && bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
 ./rpi/stream_to_windows_java.sh
 ```
 
@@ -110,9 +110,9 @@ Ciagly odczyt i wysylka do PC:
 
 ```bash
 cd ..
-PC_USER=piotrek \
-PC_HOST=192.168.137.1 \
-REMOTE_COMMAND='cd /d "C:\Users\Piotrek\Desktop\Bms-C-Java-Rpi-main" && bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
+PC_USER=WINDOWS_USER \
+PC_HOST=LAPTOP_IP \
+REMOTE_COMMAND='cd /d "C:\path\to\Bms-C-Java-Rpi" && bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
 ./rpi/stream_to_windows_java.sh
 ```
 
@@ -120,17 +120,7 @@ Jezeli projekt jest w innym folderze, zmien tylko sciezke w `REMOTE_COMMAND`.
 
 ## 3. Hotspot Windows
 
-Gdy laptop udostepnia hotspot, jego IP zwykle jest:
-
-```text
-192.168.137.1
-```
-
-Raspberry Pi ma wtedy adres podobny do:
-
-```text
-192.168.137.218
-```
+Gdy laptop udostepnia hotspot, Raspberry Pi dostaje adres z sieci hotspotu.
 
 Na RPi sprawdz adres laptopa:
 
@@ -138,20 +128,20 @@ Na RPi sprawdz adres laptopa:
 ip route
 ```
 
-Adres po `default via` to zwykle adres laptopa. Uzywaj go jako `PC_HOST`.
+Adres po `default via` to zwykle adres laptopa. Uzywaj go jako `PC_HOST` albo placeholder `LAPTOP_IP`.
 
 ## 4. Testy bez BMS
 
 Sprawdz backend przez SSH:
 
 ```bash
-ssh piotrek@192.168.137.1 'curl.exe http://127.0.0.1:8090/api/health'
+ssh WINDOWS_USER@LAPTOP_IP 'curl.exe http://127.0.0.1:8090/api/health'
 ```
 
 Wyslij jedna linie testowa do backendu:
 
 ```bash
-printf "BMS,1,52.100,0.000,75000000,151,3260,3261,3262,3264\n" | ssh piotrek@192.168.137.1 'curl.exe -X POST http://127.0.0.1:8090/api/ingest --data-binary @-'
+printf "BMS,1,52.100,0.000,75000000,151,3260,3261,3262,3264\n" | ssh WINDOWS_USER@LAPTOP_IP 'curl.exe -X POST http://127.0.0.1:8090/api/ingest --data-binary @-'
 ```
 
 Poprawna odpowiedz:
@@ -163,7 +153,7 @@ Poprawna odpowiedz:
 Sprawdz ostatnie dane:
 
 ```bash
-ssh piotrek@192.168.137.1 'curl.exe http://127.0.0.1:8090/api/latest'
+ssh WINDOWS_USER@LAPTOP_IP 'curl.exe http://127.0.0.1:8090/api/latest'
 ```
 
 Wazne:
@@ -178,7 +168,7 @@ Na Raspberry Pi:
 
 ```bash
 ssh-keygen
-ssh-copy-id piotrek@192.168.137.1
+ssh-copy-id WINDOWS_USER@LAPTOP_IP
 ```
 
 Potem `stream_to_windows_java.sh` moze dzialac bez wpisywania hasla przy kazdym starcie.
@@ -190,7 +180,7 @@ Potem `stream_to_windows_java.sh` moze dzialac bez wpisywania hasla przy kazdym 
 Backend nie dziala albo `DataManager` laczy sie z niewlasciwym adresem. Sprawdz:
 
 ```bash
-ssh piotrek@192.168.137.1 'curl.exe http://127.0.0.1:8090/api/health'
+ssh WINDOWS_USER@LAPTOP_IP 'curl.exe http://127.0.0.1:8090/api/health'
 ```
 
 ### `Connect timed out`
@@ -223,7 +213,7 @@ C:\Program Files\Java\jdk-25\bin\java.exe
 Sprawdz najpierw API:
 
 ```bash
-ssh piotrek@192.168.137.1 'curl.exe http://127.0.0.1:8090/api/latest'
+ssh WINDOWS_USER@LAPTOP_IP 'curl.exe http://127.0.0.1:8090/api/latest'
 ```
 
 Jesli zwraca dane, odswiez Web GUI przez `Ctrl + F5`.

@@ -106,26 +106,22 @@ cd rpi
 make
 ```
 
-Jeśli laptop udostępnia hotspot, jego IP zwykle jest:
-
-```text
-192.168.137.1
-```
-
-Sprawdź z RPi:
+Jeśli laptop udostępnia hotspot, adres laptopa sprawdzisz na RPi:
 
 ```bash
 ip route
 ```
 
+Adres po `default via` podstaw jako `LAPTOP_IP`.
+
 Uruchom pełny program:
 
 ```bash
 cd ..
-PC_USER=piotrek \
-PC_HOST=192.168.137.1 \
+PC_USER=WINDOWS_USER \
+PC_HOST=LAPTOP_IP \
 TEMPERATURE_COMMAND= \
-REMOTE_COMMAND='cd /d "C:\Users\Piotrek\Desktop\Bms-C-Java-Rpi-main" && bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
+REMOTE_COMMAND='cd /d "C:\path\to\Bms-C-Java-Rpi" && bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
 ./rpi/stream_to_windows_java.sh
 ```
 
@@ -134,8 +130,8 @@ REMOTE_COMMAND='cd /d "C:\Users\Piotrek\Desktop\Bms-C-Java-Rpi-main" && bash -lc
 Test ręczny bez BMS:
 
 ```bash
-printf "BMS,1,52.100,0.000,75000000,151,3260,3261,3262,3264\n" | ssh piotrek@192.168.137.1 'curl.exe -X POST http://127.0.0.1:8090/api/ingest --data-binary @-'
-ssh piotrek@192.168.137.1 'curl.exe http://127.0.0.1:8090/api/latest'
+printf "BMS,1,52.100,0.000,75000000,151,3260,3261,3262,3264\n" | ssh WINDOWS_USER@LAPTOP_IP 'curl.exe -X POST http://127.0.0.1:8090/api/ingest --data-binary @-'
+ssh WINDOWS_USER@LAPTOP_IP 'curl.exe http://127.0.0.1:8090/api/latest'
 ```
 
 Pamiętaj:

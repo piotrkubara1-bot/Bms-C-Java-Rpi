@@ -56,17 +56,18 @@
 	<section>
 		<h2>Sprawdzony wariant: laptop jako hotspot</h2>
 		<p>
-			Gdy laptop udostepnia hotspot Windows, laptop zwykle ma adres <code>192.168.137.1</code>,
-			a Raspberry Pi dostaje adres <code>192.168.137.x</code>. Na RPi sprawdz to komenda:
+			Gdy laptop udostepnia hotspot Windows, Raspberry Pi dostaje adres z sieci hotspotu.
+			Adres laptopa sprawdz na RPi komenda:
 		</p>
 		<pre>ip route</pre>
 		<p>
-			Adres po <code>default via</code> to adres laptopa. Pelny start potoku z RPi:
+			Adres po <code>default via</code> to adres laptopa. Podstaw go jako <code>LAPTOP_IP</code>.
+			Pelny start potoku z RPi:
 		</p>
-		<pre>PC_USER=piotrek \
-PC_HOST=192.168.137.1 \
+		<pre>PC_USER=WINDOWS_USER \
+PC_HOST=LAPTOP_IP \
 TEMPERATURE_COMMAND= \
-REMOTE_COMMAND='cd /d "C:\Users\Piotrek\Desktop\Bms-C-Java-Rpi-main" &amp;&amp; bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
+REMOTE_COMMAND='cd /d "C:\path\to\Bms-C-Java-Rpi" &amp;&amp; bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
 ./rpi/stream_to_windows_java.sh</pre>
 		<p>
 			<code>TEMPERATURE_COMMAND=</code> wylacza odczyt temperatury DS18B20. Bez tego
@@ -81,8 +82,8 @@ REMOTE_COMMAND='cd /d "C:\Users\Piotrek\Desktop\Bms-C-Java-Rpi-main" &amp;&amp; 
 			<code>/api/latest</code> zwraca ostatnie dane metoda <code>GET</code>.
 			Nie wysylaj <code>POST</code> na <code>/api/latest</code>, bo dostaniesz <code>Method not allowed</code>.
 		</p>
-		<pre>printf "BMS,1,52.100,0.000,75000000,151,3260,3261,3262,3264\n" | ssh piotrek@192.168.137.1 'curl.exe -X POST http://127.0.0.1:8090/api/ingest --data-binary @-'
-ssh piotrek@192.168.137.1 'curl.exe http://127.0.0.1:8090/api/latest'</pre>
+		<pre>printf "BMS,1,52.100,0.000,75000000,151,3260,3261,3262,3264\n" | ssh WINDOWS_USER@LAPTOP_IP 'curl.exe -X POST http://127.0.0.1:8090/api/ingest --data-binary @-'
+ssh WINDOWS_USER@LAPTOP_IP 'curl.exe http://127.0.0.1:8090/api/latest'</pre>
 		<p>
 			Poprawny ingest zwraca <code>{"accepted":1,"heartbeat":0,"rejected":0}</code>.
 		</p>

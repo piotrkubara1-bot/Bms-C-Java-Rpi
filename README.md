@@ -319,21 +319,21 @@ TEMPERATURE_COMMAND=
 
 Jeśli jednorazowy odczyt działa, wróć do katalogu głównego projektu i uruchom ciągłe wysyłanie do PC.
 
-Jeśli laptop udostępnia hotspot Windows, IP laptopa zwykle jest `192.168.137.1`, a Raspberry Pi ma adres typu `192.168.137.xxx`. Na RPi możesz to sprawdzić:
+Jeśli laptop udostępnia hotspot Windows, Raspberry Pi dostanie adres z sieci hotspotu. Na RPi możesz sprawdzić adres laptopa:
 
 ```bash
 ip route
 ```
 
-Adres po `default via` to zwykle adres laptopa.
+Adres po `default via` to zwykle adres laptopa. W komendach poniżej podstaw go jako `LAPTOP_IP`.
 
-Przykład dla laptopa/hotspotu `192.168.137.1` i projektu sklonowanego jako `Bms-C-Java-Rpi-main`:
+Przykład dla projektu sklonowanego na laptopie:
 
 ```bash
-PC_USER=piotrek \
-PC_HOST=192.168.137.1 \
+PC_USER=WINDOWS_USER \
+PC_HOST=LAPTOP_IP \
 TEMPERATURE_COMMAND= \
-REMOTE_COMMAND='cd /d "C:\Users\Piotrek\Desktop\Bms-C-Java-Rpi-main" && bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
+REMOTE_COMMAND='cd /d "C:\path\to\Bms-C-Java-Rpi" && bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
 ./rpi/stream_to_windows_java.sh
 ```
 
@@ -356,13 +356,13 @@ Backend powinien wypisać:
 Sprawdź z RPi, czy laptop odpowiada:
 
 ```bash
-ssh piotrek@192.168.137.1 'curl.exe http://127.0.0.1:8090/api/health'
+ssh WINDOWS_USER@LAPTOP_IP 'curl.exe http://127.0.0.1:8090/api/health'
 ```
 
 Wyślij ręcznie jedną linię testową:
 
 ```bash
-printf "BMS,1,52.100,0.000,75000000,151,3260,3261,3262,3264\n" | ssh piotrek@192.168.137.1 'curl.exe -X POST http://127.0.0.1:8090/api/ingest --data-binary @-'
+printf "BMS,1,52.100,0.000,75000000,151,3260,3261,3262,3264\n" | ssh WINDOWS_USER@LAPTOP_IP 'curl.exe -X POST http://127.0.0.1:8090/api/ingest --data-binary @-'
 ```
 
 Poprawna odpowiedź:
@@ -374,7 +374,7 @@ Poprawna odpowiedź:
 Potem sprawdź ostatnie dane:
 
 ```bash
-ssh piotrek@192.168.137.1 'curl.exe http://127.0.0.1:8090/api/latest'
+ssh WINDOWS_USER@LAPTOP_IP 'curl.exe http://127.0.0.1:8090/api/latest'
 ```
 
 `/api/ingest` służy do wysyłania danych przez `POST`. `/api/latest` służy do oglądania danych przez zwykły `GET`, bez `-X POST`.
@@ -543,9 +543,9 @@ Jeśli chcesz uruchomić cały BMS bez temperatury, dodaj puste `TEMPERATURE_COM
 
 ```bash
 TEMPERATURE_COMMAND= \
-PC_USER=piotrek \
-PC_HOST=192.168.137.1 \
-REMOTE_COMMAND='cd /d "C:\Users\Piotrek\Desktop\Bms-C-Java-Rpi-main" && bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
+PC_USER=WINDOWS_USER \
+PC_HOST=LAPTOP_IP \
+REMOTE_COMMAND='cd /d "C:\path\to\Bms-C-Java-Rpi" && bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
 ./rpi/stream_to_windows_java.sh
 ```
 
