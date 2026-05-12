@@ -58,6 +58,48 @@ python3 temperatureSensor.py
 
 Powinien wypisac jedna liczbe, np. `24.5625`. Skrypt `stream_to_windows_java.sh` uruchamia go domyslnie i dopisuje wynik do linii BMS jako `TEMP_C`.
 
+Jezeli nie chcesz uzywac temperatury albo czujnik nie jest jeszcze gotowy, wylacz odczyt temperatury:
+
+```bash
+TEMPERATURE_COMMAND= \
+PC_USER=piotrek \
+PC_HOST=192.168.137.1 \
+REMOTE_COMMAND='cd /d "C:\Users\Piotrek\Desktop\Bms-C-Java-Rpi-main" && bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
+./rpi/stream_to_windows_java.sh
+```
+
+Jezeli Python pokazuje `No module named w1thermsensor`, zainstaluj biblioteke w tym samym Pythonie, ktory uruchamia skrypt. Dla aktywnego `venv`:
+
+```bash
+python3 -m pip install w1thermsensor
+```
+
+Dla systemowego Pythona:
+
+```bash
+sudo apt update
+sudo apt install python3-w1thermsensor
+```
+
+Sprawdz import i odczyt:
+
+```bash
+python3 -c "from w1thermsensor import W1ThermSensor; print('ok')"
+python3 rpi/temperatureSensor.py
+```
+
+Dla DS18B20 musi byc wlaczone 1-Wire. W Raspberry Pi OS zwykle dodaj do `/boot/firmware/config.txt` albo `/boot/config.txt`:
+
+```text
+dtoverlay=w1-gpio
+```
+
+Potem zrestartuj RPi:
+
+```bash
+sudo reboot
+```
+
 Jednorazowy odczyt w formacie dla Javy:
 
 ```bash
@@ -186,6 +228,38 @@ ssh piotrek@192.168.137.1 'curl.exe http://127.0.0.1:8090/api/latest'
 
 Jesli zwraca dane, odswiez Web GUI przez `Ctrl + F5`.
 Jesli zwraca `[]`, backend jeszcze nie dostal danych.
+
+### `Temperature command produced no output`
+
+Program C uruchomil skrypt temperatury, ale skrypt nic nie wypisal. Najpierw testuj:
+
+```bash
+python3 rpi/temperatureSensor.py
+```
+
+Jesli czujnik nie jest potrzebny, uruchom caly potok z:
+
+```bash
+TEMPERATURE_COMMAND=
+```
+
+### `Read timed out` w `DataManager`
+
+To znaczy, ze polaczenie HTTP do API zostalo otwarte, ale backend nie oddal odpowiedzi w czasie. Sprawdz na laptopie:
+
+```powershell
+curl.exe http://127.0.0.1:8090/api/health
+curl.exe http://127.0.0.1:8090/api/latest
+```
+
+Jesli backend odpowiada wolno albo wcale, zrestartuj:
+
+```powershell
+.\stop_all.bat
+.\run_server_stack.bat
+```
+
+Jesli problem pojawia sie przy zapisie do bazy, sprawdz czy XAMPP/MySQL dziala poprawnie.
 
 ## Format danych
 

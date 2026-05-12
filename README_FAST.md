@@ -124,9 +124,12 @@ Uruchom pełny program:
 cd ..
 PC_USER=piotrek \
 PC_HOST=192.168.137.1 \
+TEMPERATURE_COMMAND= \
 REMOTE_COMMAND='cd /d "C:\Users\Piotrek\Desktop\Bms-C-Java-Rpi-main" && bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
 ./rpi/stream_to_windows_java.sh
 ```
+
+`TEMPERATURE_COMMAND=` wyłącza odczyt DS18B20. Usuń tę linię, jeśli czujnik temperatury działa.
 
 Test ręczny bez BMS:
 
@@ -141,6 +144,9 @@ Pamiętaj:
 - `/api/latest` = sprawdzanie danych przez `GET`
 - w trybie RPi nie wybierasz portu COM w Web GUI
 - jeśli jest `UnsupportedClassVersionError`, ustaw `java` i `javac` na tę samą wersję JDK
+- jeśli jest `No module named w1thermsensor`, na RPi uruchom `python3 -m pip install w1thermsensor`
+- jeśli jest `Temperature command produced no output`, sprawdź `python3 rpi/temperatureSensor.py` albo uruchom z `TEMPERATURE_COMMAND=`
+- jeśli jest `Read timed out`, zrestartuj backend `.\stop_all.bat` i `.\run_server_stack.bat`
 
 ```text
 docs/RPI_SSH_PIPELINE.md

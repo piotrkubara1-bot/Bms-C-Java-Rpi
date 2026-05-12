@@ -65,8 +65,13 @@
 		</p>
 		<pre>PC_USER=piotrek \
 PC_HOST=192.168.137.1 \
+TEMPERATURE_COMMAND= \
 REMOTE_COMMAND='cd /d "C:\Users\Piotrek\Desktop\Bms-C-Java-Rpi-main" &amp;&amp; bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
 ./rpi/stream_to_windows_java.sh</pre>
+		<p>
+			<code>TEMPERATURE_COMMAND=</code> wylacza odczyt temperatury DS18B20. Bez tego
+			<code>stream_to_windows_java.sh</code> domyslnie uruchamia <code>python3 rpi/temperatureSensor.py</code>.
+		</p>
 	</section>
 
 	<section>
@@ -91,6 +96,9 @@ ssh piotrek@192.168.137.1 'curl.exe http://127.0.0.1:8090/api/latest'</pre>
 			<li><code>Listening on 0.0.0.0:8090</code> - poprawny log backendu dla pracy przez hotspot/WSL.</li>
 			<li><code>java command: java.exe</code> - poprawny log odbiornika, gdy SSH uruchamia bash w WSL.</li>
 			<li><code>UnsupportedClassVersionError</code> - <code>javac</code> i <code>java</code> sa z roznych wersji JDK.</li>
+			<li><code>No module named w1thermsensor</code> - biblioteka DS18B20 nie jest zainstalowana w aktywnym Pythonie/venv.</li>
+			<li><code>Temperature command produced no output</code> - skrypt temperatury nie zwrocil liczby; testuj go osobno albo ustaw <code>TEMPERATURE_COMMAND=</code>.</li>
+			<li><code>Read timed out</code> - API przyjelo polaczenie, ale odpowiedz nie wrocila na czas; sprawdz i zrestartuj backend.</li>
 		</ul>
 		<pre>where java
 where javac
@@ -100,6 +108,8 @@ javac -version</pre>
 			Pierwsze <code>where java</code> powinno wskazywac aktualny JDK, np.
 			<code>C:\Program Files\Java\jdk-25\bin\java.exe</code>.
 		</p>
+		<pre>python3 -m pip install w1thermsensor
+python3 rpi/temperatureSensor.py</pre>
 	</section>
 </body>
 </html>

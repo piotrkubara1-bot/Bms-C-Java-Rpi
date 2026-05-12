@@ -304,6 +304,19 @@ make
 ./tinybms_rpi --device /dev/ttyUSB0 --module 1 --no-print --bms-line read
 ```
 
+Jeśli używasz czujnika temperatury DS18B20, sprawdź go osobno:
+
+```bash
+cd rpi
+python3 temperatureSensor.py
+```
+
+Powinien wypisać jedną liczbę, np. `24.5625`. Jeśli nie chcesz teraz używać temperatury albo czujnik nie jest gotowy, wyłącz ją przy starcie całego potoku:
+
+```bash
+TEMPERATURE_COMMAND=
+```
+
 Jeśli jednorazowy odczyt działa, wróć do katalogu głównego projektu i uruchom ciągłe wysyłanie do PC.
 
 Jeśli laptop udostępnia hotspot Windows, IP laptopa zwykle jest `192.168.137.1`, a Raspberry Pi ma adres typu `192.168.137.xxx`. Na RPi możesz to sprawdzić:
@@ -319,6 +332,7 @@ Przykład dla laptopa/hotspotu `192.168.137.1` i projektu sklonowanego jako `Bms
 ```bash
 PC_USER=piotrek \
 PC_HOST=192.168.137.1 \
+TEMPERATURE_COMMAND= \
 REMOTE_COMMAND='cd /d "C:\Users\Piotrek\Desktop\Bms-C-Java-Rpi-main" && bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
 ./rpi/stream_to_windows_java.sh
 ```
@@ -481,6 +495,77 @@ C:\Program Files\Java\jdk-25\bin\java.exe
 ```
 
 Jeśli pierwsza jest Java 8, przestaw `Path`, aby `C:\Program Files\Java\jdk-25\bin` było wyżej niż `C:\Program Files (x86)\Common Files\Oracle\Java\java8path`.
+
+### Problem 8. `No module named w1thermsensor`
+
+To znaczy, że Python na Raspberry Pi nie widzi biblioteki do czujnika DS18B20. Jeśli używasz aktywnego środowiska `venv`, zainstaluj ją w tym środowisku:
+
+```bash
+python3 -m pip install w1thermsensor
+```
+
+Jeśli używasz systemowego Pythona:
+
+```bash
+sudo apt update
+sudo apt install python3-w1thermsensor
+```
+
+Sprawdź:
+
+```bash
+python3 -c "from w1thermsensor import W1ThermSensor; print('ok')"
+python3 rpi/temperatureSensor.py
+```
+
+Dla DS18B20 musi być też włączone 1-Wire. W Raspberry Pi OS zwykle w pliku `/boot/firmware/config.txt` albo `/boot/config.txt` dodaj:
+
+```text
+dtoverlay=w1-gpio
+```
+
+Potem zrestartuj RPi:
+
+```bash
+sudo reboot
+```
+
+### Problem 9. `Temperature command produced no output`
+
+Program C uruchomił komendę temperatury, ale skrypt nic nie wypisał. Najpierw testuj temperaturę osobno:
+
+```bash
+cd rpi
+python3 temperatureSensor.py
+```
+
+Jeśli chcesz uruchomić cały BMS bez temperatury, dodaj puste `TEMPERATURE_COMMAND`:
+
+```bash
+TEMPERATURE_COMMAND= \
+PC_USER=piotrek \
+PC_HOST=192.168.137.1 \
+REMOTE_COMMAND='cd /d "C:\Users\Piotrek\Desktop\Bms-C-Java-Rpi-main" && bash -lc "bash scripts/windows_receive_from_ssh.sh"' \
+./rpi/stream_to_windows_java.sh
+```
+
+### Problem 10. `Read timed out` w `DataManager`
+
+To znaczy, że Java połączyła się z backendem, ale odpowiedź nie wróciła na czas. Sprawdź, czy backend nie jest zawieszony:
+
+```powershell
+curl.exe http://127.0.0.1:8090/api/health
+curl.exe http://127.0.0.1:8090/api/latest
+```
+
+Jeśli backend odpowiada wolno albo wcale, zrestartuj go:
+
+```powershell
+.\stop_all.bat
+.\run_server_stack.bat
+```
+
+Jeśli używasz MySQL i API przycina się przy zapisie, sprawdź też czy XAMPP/MySQL działa poprawnie. Na próbę możesz wysłać ręcznie jedną linię przez `/api/ingest` i sprawdzić, czy zwraca `accepted:1`.
 
 ## 14. Najważniejsze pliki
 
